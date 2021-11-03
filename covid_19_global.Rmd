@@ -1,0 +1,167 @@
+---
+title: "Pilot Test of COVID19"
+subtitle: "Term Paper"
+author: "Samantha Chiu and Jasmin Griffin"
+output: html_notebook
+---
+
+## Setup
+
+We start by first installing some packages that we will need throughout this notebook.
+
+```{r}
+# install.packages("xml2")
+# install.packages("rvest")
+# install.packages("jsonlite")
+# install.packages("robotstxt")
+# install.packages("RSocrata")
+install.packages("stringi")
+```
+
+Besides installing the packages, they also have to be loaded.
+
+```{r}
+library(xml2)
+library(rvest)
+library(jsonlite)
+library(robotstxt)
+library(RSocrata)
+library(tidyverse)
+library(httr)
+library(stringi)
+```
+
+## UMD COVID Map
+
+### API website 
+
+First we load the COVID map API
+
+```{r}
+paths_allowed("https://covidmap.umd.edu/api/country")
+```
+
+### Loading Countries with COVID rates
+
+We then start by reading in the information from each english speaking country in the global data.
+We pull the percent with covid data for a benchmark.
+Note: Replace date range to overlap with twitter data.
+
+```{r}
+uk <- "https://covidmap.umd.edu/api/resources?indicator=covid&type=smoothed&country=United_Kingdom&daterange=20211020-20211027"
+request <- GET(url = uk)
+response <- content(request, as = "text", encoding = "UTF-8")
+ukdata <- fromJSON(response, flatten = TRUE) %>% data.frame()
+ukdata
+```
+```{r}
+australia <- "https://covidmap.umd.edu/api/resources?indicator=covid&type=smoothed&country=Australia&daterange=20211020-20211027"
+request <- GET(url = australia)
+response <- content(request, as = "text", encoding = "UTF-8")
+australiadata <- fromJSON(response, flatten = TRUE) %>% data.frame()
+australiadata
+```
+```{r}
+canada <- "https://covidmap.umd.edu/api/resources?indicator=covid&type=smoothed&country=canada&daterange=20211020-20211027"
+request <- GET(url = canada)
+response <- content(request, as = "text", encoding = "UTF-8")
+canadadata <- fromJSON(response, flatten = TRUE) %>% data.frame()
+canadadata
+```
+
+Binding dataframes
+
+```{r}
+bind_rows(ukdata, australiadata, canadadata)
+```
+
+### Loading Countries with Anosmia
+
+```{r}
+uk_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=United_Kingdom&daterange=20211025-20211031"
+request <- GET(url = uk_anos)
+response <- content(request, as = "text", encoding = "UTF-8")
+uk_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+uk_anos
+```
+
+```{r}
+aus_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=Australia&daterange=20211025-20211031"
+request <- GET(url = aus_anos)
+response <- content(request, as = "text", encoding = "UTF-8")
+aus_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+aus_anos
+```
+
+```{r}
+can_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=Canada&daterange=20211025-20211031"
+request <- GET(url = can_anos)
+response <- content(request, as = "text", encoding = "UTF-8")
+can_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+can_anos
+```
+
+Binding dataframes
+
+```{r}
+bind_rows(uk_anos, aus_anos, can_anos)
+```
+```{r}
+drange <- "20211025-20211031"
+indicator <- "anosmia"
+countries <- list("United_Kingdom", "Australia", "Canada", "Germany")
+
+dataframe <- vector()
+for (country in countries){
+  url <- paste("https://covidmap.umd.edu/api/resources?indicator=", indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
+  request <- GET(url = url)
+  response <- content(request, as = "text", encoding = "UTF-8")
+  anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+  dataframe <- rbind(dataframe,anos)
+} 
+str(dataframe)
+print(dataframe) 
+```
+```{r}
+rate <- function(drange, indicators, countries){
+  ctydf <- vector()
+  for (country in countries){
+    inddf <- vector()
+    for (indicator in indicators){
+      url <- paste("https://covidmap.umd.edu/api/resources?indicator=",indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
+      request <- GET(url = url)
+      response <- content(request, as = "text", encoding = "UTF-8")
+      indic <- fromJSON(response, flatten = TRUE) %>% data.frame()
+      indic <- as.data.frame(indic)
+      colnames(indic) <-  sub("data", indicator, colnames(indic))
+      inddf <- c(inddf,indic)
+    }
+    ctydf <- rbind.data.frame(ctydf, as.data.frame(inddf))
+  } 
+  ctydf <- as.data.frame(ctydf)
+  
+  cols <- colnames(ctydf)
+
+  colsf <- stri_detect_fixed(cols, "data.country.") | stri_detect_fixed(cols, "status") |  stri_detect_fixed(cols, ".gid") |  stri_detect_fixed(cols, ".iso_code") |  stri_detect_fixed(cols, "data.survey_date.")
+  filteredcols <-( cols[c(!colsf)] )
+  #print(filteredcols)
+  
+  fdf <- ctydf[c(filteredcols)]
+  #quick and dirty 
+  colnames(fdf) <-  sub("_anos", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid_vaccine_", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_mc", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid_", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid", "", colnames(fdf))
+  colnames(fdf) <-  sub("__", "_", colnames(fdf))
+  #colnames(fdf) <-  sub("_", "", colnames(fdf))
+  
+  return(fdf)
+}
+
+result <- rate("20211025-20211031",list("anosmia", "covid","mask","covid_vaccine"),list("United_Kingdom", "Canada","Australia","Ireland"))
+
+print(colnames(result))
+result
+
+```
