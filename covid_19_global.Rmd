@@ -1,8 +1,10 @@
 ---
 title: "Pilot Test of COVID19"
-subtitle: "Term Paper"
 author: "Samantha Chiu and Jasmin Griffin"
-output: html_notebook
+subtitle: Term Paper
+output:
+  word_document: default
+  html_notebook: default
 ---
 
 ## Setup
@@ -15,7 +17,7 @@ We start by first installing some packages that we will need throughout this not
 # install.packages("jsonlite")
 # install.packages("robotstxt")
 # install.packages("RSocrata")
-install.packages("stringi")
+# install.packages("stringi")
 ```
 
 Besides installing the packages, they also have to be loaded.
@@ -41,81 +43,11 @@ First we load the COVID map API
 paths_allowed("https://covidmap.umd.edu/api/country")
 ```
 
-### Loading Countries with indicator and other rates
+### Loading Countries with COVID rates
 
 We then start by reading in the information from each english speaking country in the global data.
+We pull the percent with covid data for a benchmark.
 Note: Replace date range to overlap with twitter data.
-
-```{r}
-
-# Change drange, indicator, and countries
-
-drange <- "20211025-20211031"
-indicator <- "anosmia"
-countries <- list("United_Kingdom", "Australia", "Canada", "Germany")
-
-dataframe <- vector()
-for (country in countries){
-  url <- paste("https://covidmap.umd.edu/api/resources?indicator=", indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
-  request <- GET(url = url)
-  response <- content(request, as = "text", encoding = "UTF-8")
-  anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
-  dataframe <- rbind(dataframe,anos)
-} 
-str(dataframe)
-print(dataframe) 
-```
-
-Faster option with function 
-
-```{r}
-rate <- function(drange, indicators, countries){
-  ctydf <- vector()
-  for (country in countries){
-    inddf <- vector()
-    for (indicator in indicators){
-      url <- paste("https://covidmap.umd.edu/api/resources?indicator=",indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
-      request <- GET(url = url)
-      response <- content(request, as = "text", encoding = "UTF-8")
-      indic <- fromJSON(response, flatten = TRUE) %>% data.frame()
-      indic <- as.data.frame(indic)
-      colnames(indic) <-  sub("data", indicator, colnames(indic))
-      inddf <- c(inddf,indic)
-    }
-    ctydf <- rbind.data.frame(ctydf, as.data.frame(inddf))
-  } 
-  ctydf <- as.data.frame(ctydf)
-  
-  cols <- colnames(ctydf)
-
-colsf <- stri_detect_fixed(cols, "data.country.") | stri_detect_fixed(cols, "status") |  stri_detect_fixed(cols, ".gid") |  stri_detect_fixed(cols, ".iso_code") |  stri_detect_fixed(cols, "data.survey_date.")
-  filteredcols <-( cols[c(!colsf)] )
-  #print(filteredcols)
-  
-  fdf <- ctydf[c(filteredcols)]
-  #quick and dirty 
-  colnames(fdf) <-  sub("_anos", "_", colnames(fdf))
-  colnames(fdf) <-  sub("_covid_vaccine_", "_", colnames(fdf))
-  colnames(fdf) <-  sub("_mc", "_", colnames(fdf))
-  colnames(fdf) <-  sub("_covid_", "_", colnames(fdf))
-  colnames(fdf) <-  sub("_covid", "", colnames(fdf))
-  colnames(fdf) <-  sub("__", "_", colnames(fdf))
-  #colnames(fdf) <-  sub("_", "", colnames(fdf))
-  
-  return(fdf)
-}
-
-# change date range and add indicators or interest items and modify countries here
-
-result <- rate("20211025-20211031",list("anosmia", "covid","mask","covid_vaccine"),list("United_Kingdom", "Canada","Australia","Ireland"))
-
-print(colnames(result))
-result
-
-```
-### Manual code for additional future case-studies if needed
-
-## Benchmarking against COVID illness
 
 ```{r}
 uk <- "https://covidmap.umd.edu/api/resources?indicator=covid&type=smoothed&country=United_Kingdom&daterange=20211020-20211027"
@@ -145,7 +77,7 @@ Binding dataframes
 bind_rows(ukdata, australiadata, canadadata)
 ```
 
-## Loading Countries with Anosmia
+### Loading Countries with Anosmia
 
 ```{r}
 uk_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=United_Kingdom&daterange=20211025-20211031"
@@ -170,8 +102,164 @@ response <- content(request, as = "text", encoding = "UTF-8")
 can_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
 can_anos
 ```
+
 Binding dataframes
 
 ```{r}
 bind_rows(uk_anos, aus_anos, can_anos)
 ```
+```{r}
+drange <- "20211025-20211031"
+indicator <- "anosmia"
+countries <- list("United_Kingdom", "Australia", "Canada", "Germany")
+
+dataframe <- vector()
+for (country in countries){
+  url <- paste("https://covidmap.umd.edu/api/resources?indicator=", indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
+  request <- GET(url = url)
+  response <- content(request, as = "text", encoding = "UTF-8")
+  anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+  dataframe <- rbind(dataframe,anos)
+} 
+str(dataframe)
+print(dataframe) 
+```
+```{r}
+rate <- function(drange, indicators, countries){
+  ctydf <- vector()
+  for (country in countries){
+    inddf <- vector()
+    for (indicator in indicators){
+      url <- paste("https://covidmap.umd.edu/api/resources?indicator=",indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
+      request <- GET(url = url)
+      response <- content(request, as = "text", encoding = "UTF-8")
+      indic <- fromJSON(response, flatten = TRUE) %>% data.frame()
+      indic <- as.data.frame(indic)
+      colnames(indic) <-  sub("data", indicator, colnames(indic))
+      inddf <- c(inddf,indic)
+    }
+    ctydf <- rbind.data.frame(ctydf, as.data.frame(inddf))
+  } 
+  ctydf <- as.data.frame(ctydf)
+  
+  cols <- colnames(ctydf)
+
+  colsf <- stri_detect_fixed(cols, "data.country.") | stri_detect_fixed(cols, "status") |  stri_detect_fixed(cols, ".gid") |  stri_detect_fixed(cols, ".iso_code") |  stri_detect_fixed(cols, "data.survey_date.")
+  filteredcols <-( cols[c(!colsf)] )
+  #print(filteredcols)
+  
+  fdf <- ctydf[c(filteredcols)]
+  #quick and dirty 
+  colnames(fdf) <-  sub("_anos", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid_vaccine_", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_mc", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid_", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid", "", colnames(fdf))
+  colnames(fdf) <-  sub("__", "_", colnames(fdf))
+  #colnames(fdf) <-  sub("_", "", colnames(fdf))
+  
+  return(fdf)
+}
+
+result <- rate("20211025-20211031",list("anosmia", "covid","mask","covid_vaccine"),list("United_Kingdom", "Canada","Australia","Ireland"))
+
+print(colnames(result))
+result
+
+```
+## Comparing to the date range in the google trends API 
+
+```{r}
+library(tidyverse)
+library(gtrendsR)
+library(censusapi)
+```
+
+```{r}
+res <- gtrends(c("anosmia"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
+plot <- plot(res, geom = 'smooth')
+```
+Considering if looking at Gtrends for the past year with GB case
+
+```{r}
+uk_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=United_Kingdom&daterange=20210101-20211031"
+request <- GET(url = uk_anos)
+response <- content(request, as = "text", encoding = "UTF-8")
+uk_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+uk_anos
+```
+```{r}
+date <- ymd(uk_anos$data.survey_date)
+date
+plot(date, uk_anos$data.smoothed_anos, type = "line")
+```
+Changing data for the whole year
+
+```{r}
+drange <- "20210101-20211031"
+indicator <- "anosmia"
+countries <- list("United_Kingdom", "Australia", "Canada", "Ireland")
+
+dataframe <- vector()
+for (country in countries){
+  url <- paste("https://covidmap.umd.edu/api/resources?indicator=", indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
+  request <- GET(url = url)
+  response <- content(request, as = "text", encoding = "UTF-8")
+  anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+  dataframe <- rbind(dataframe,anos)
+} 
+str(dataframe)
+print(dataframe) 
+```
+
+```{r}
+date_all <- ymd(dataframe$data.survey_date)
+
+anos_all <-
+  dataframe %>%
+   mutate(data_all = ymd(dataframe$data.survey_date)) %>%
+   group_by(data.smoothed_anos, data_all, data.country)
+```
+
+```{r}
+ggplot(anos_all) +
+  geom_line(aes(x = data_all, y = data.smoothed_anos, color = data.country), size = 0.5)
+```
+```{r}
+res <- gtrends(c("anosmia"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
+plot <- plot(res, geom = 'smooth')
+```
+```{r}
+res <- gtrends(c("No Taste"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
+plot <- plot(res, geom = 'smooth')
+```
+```{r}
+res <- gtrends(c("No Smell"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
+plot <- plot(res, geom = 'smooth')
+```
+
+## CMU DELPHI COVIDCAST
+
+```{r}
+library(covidcast)
+
+data <- covidcast_signal("fb-survey", "smoothed_wcli", start_day = "2020-11-25",
+                         end_day = "2020-11-30")
+
+data
+```
+### Microdata access is not via an API
+
+The anosmia indicator is not available via the aggregated API. Instead it is available via an SFTP server.
+
+```{r}
+library(foreign)
+us_11_20 <- read.csv("C:/Users/Samantha/Documents/cvid_responses_2021_11_20_recordedby_2021_11_24.csv")
+us_11_21
+us_11_22
+us_11_23
+us_11_24
+us_11_25
+
+```
+
