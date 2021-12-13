@@ -1,17 +1,62 @@
 ---
-title: "Pilot Test of COVID19"
+title: "COVID-19 and Social Media Trends: Facebook and Twitter"
 author: "Samantha Chiu and Jasmin Griffin"
-subtitle: Term Paper
+subtitle: SURV727 Term Paper
 output:
-  word_document: default
+  html_document:
+    df_print: paged
   html_notebook: default
+  pdf_document: default
+  word_document: default
 ---
 
-## Setup
+# Introduction and Motivation
+
+Social media is a relatively new data source for public opinion.  Twitter and Facebook have illustrated a large potential for insights into the attitudes and behaviors of populations. Twitter streams have been a mechanism for reflecting and organizing social movements and uprisings (i.e. “Twitter Revolutions” like the Arab Spring and the 2021 Storming of the United States Capitol).  Facebook has effectively used personal online data to predict preferences and influence behavior. 
+
+These events have led social science researchers to question the applicability of these resources as potential samples for scientific inquiry. Both social media platforms are growing in use as non-probability samples. However, little is known about these samples’ level of representation, generalizability, and predictive power. Furthermore, as survey nonresponse and the cost of fieldwork increases, researchers face increasing pressure to switch to non-probability samples. Our term paper hopes to contribute to a better understanding of how social media -- as data generating resources -- may enhance, compliment, or verify findings. 
+
+We are interested in whether or not either data set (i.e. Twitter or Facebook) leads or lags the other. We want to compare symptom reporting. Do mentions of anosmia in Twitter samples trend with reporting of anosmia in Facebook samples? Bottom line, we are interested is if this method provides a solution for rapid data collection on public opinion. This research is being conducted during a time where we have a highly salient topic like anosmia that is permeating social media culture.
+
+# Research Question 
+
+During COVID-19, the demand for rapid data collection was at an all-time high. It felt like every agency, organization, and department switched to learning more about COVID-19. During this time, Facebook -- through joint partnerships with University of Maryland -- launched a COVID-19 symptoms survey. The symptoms suggesting COVID-19 included anosmia -- the lack of taste or smell. 
+
+Anosmia was a relatively unknown word prior to the pandemic. I remember when we were designing the symptoms indicators for the Facebook COVID-19 Symptoms Survey in February to March 2020. We knew fever and cough were symptoms of the virus, then after a few weeks we learned that a lack of taste or smell was a symptom that made COVID-19 distinct from the flu. Epidemiologists called this Anosmia. As a survey methodologist, there was no way we could put anosmia as a self-reported symptom -- the general public would not know what this word meant and if we used anosmia it would likely increase measurement error. 
+
+Twitter offers a unique scenario in which we can listen or scrape tweets for mentions of anosmia to see if the general populations report on anosmia at the same rate or trend as “lack of taste or smell” or “I can’t smell anything and I can’t taste anything.” We picked anosmia because it is a “clean” word and unlikely to have overlap with non-COVID-19 related topics during our data collection period. However, because the Facebook data users the response option “Lack or no taste or smell,” and after our pilot study, we decided to scrape for these words as well. 
+
+Although we cannot directly comment on the non-probability nature of these samples -- that is, we do not have access to demographic data from Twitter or from Facebook user accounts -- we do wonder to what extent the Facebook survey data or the Twitter data can be used to enhance, validate, or inform each other. 
+
+# Data Sources
+
+Our term paper uses two Open APIs: The Global COVID-19 Trends and Impact Survey (CTIS) Open Data API and the Twitter API. 
+
+The CTIS API is allows researchers to access the daily COVID-19 World Symptoms Survey data. The survey is available in 56 languages. A representative sample of Facebook users is invited on a daily basis to report on topics including, for example, symptoms, social distancing behavior, vaccine acceptance, mental health issues, and finnancial constraints.
+
+The Twitter API enables researchers to listen for keywords from Tweets. Keywords which parallel survey reporting will be used. We will ensure the time frame between the survey and listening overlap.
+
+# Hypothesis
+
+Our primary hypothesis is that integrating both open data source APIs will produce more meaningful results and better patterns on the state of COVID-19 than when evaluated independently. A secondary hypothesis is that the attitudes and behaviors reflected in the UMD CTIS Survey data will be similar to the rate of mention collected in Twitter. 
+
+# Methodology
+
+For our term paper we examine the over-time trends for anosmia in the CTIS survey and in Twitter. For analysis we will model how both peaks and valleys compare across a 7-day period for these key-words. From our pilot studies, we do decide to take a macro perspective to look at the United Kingdon over the year. Furthermore, we find that anosmia is measured as "lack of taste of smell," instead of anosmia. The way anosmia is measured in the CTIS survey drives the Twitter keyword search.
+
+
+# Limitations
+
+A few limitations should be recognized prior to launching into our research findings. The global scope for the Facebook/UMD CTIS survey data is large and covers multiple countries, languages and regions. The Twitter scraping will be limited to English. Therefore, we will limit our research to English speaking countries. However after the pilot study, we do decide to narrow down on the United Kingdom.
+
+It is also unknown if there is any population overlap between the Facebook survey samples and the Twitter samples. We must assume that social media users have accounts on both platforms. But we do not know the rate of sampling and resampling done in the Facebook population, and we have no personal identifiers, demographic information, or other individual user profile identifiers available to deconstruct the potential for population overlap.
+
+# Facebook Pilot Study
 
 We start by first installing some packages that we will need throughout this notebook.
 
 ```{r}
+# tinytex::install_tinytex()
 # install.packages("xml2")
 # install.packages("rvest")
 # install.packages("jsonlite")
@@ -33,11 +78,13 @@ library(httr)
 library(stringi)
 ```
 
-## UMD COVID Map
+## UMD CTIS Survey
+
+Next we prepare for the pilot study of the UMD and Facebook CTIS Survey
 
 ### API website 
 
-First we load the COVID map API
+First we load the COVID map API.
 
 ```{r}
 paths_allowed("https://covidmap.umd.edu/api/country")
@@ -45,9 +92,7 @@ paths_allowed("https://covidmap.umd.edu/api/country")
 
 ### Loading Countries with COVID rates
 
-We then start by reading in the information from each english speaking country in the global data.
-We pull the percent with covid data for a benchmark.
-Note: Replace date range to overlap with twitter data.
+We then start by reading in the information from each English speaking country in the global data. We pull the "percent with covid data" for a benchmark. Please note that the date ranges are regularly updated as we moved from the pilot study to final run. Replace date range to overlap with twitter data.
 
 ```{r}
 uk <- "https://covidmap.umd.edu/api/resources?indicator=covid&type=smoothed&country=United_Kingdom&daterange=20211020-20211027"
@@ -71,13 +116,15 @@ canadadata <- fromJSON(response, flatten = TRUE) %>% data.frame()
 canadadata
 ```
 
-Binding dataframes
+But, we bind the dataframes
 
 ```{r}
 bind_rows(ukdata, australiadata, canadadata)
 ```
 
 ### Loading Countries with Anosmia
+
+Next we look at anosmia for each country.
 
 ```{r}
 uk_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=United_Kingdom&daterange=20211025-20211031"
@@ -103,15 +150,23 @@ can_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
 can_anos
 ```
 
-Binding dataframes
+And, binding dataframes.
 
 ```{r}
 bind_rows(uk_anos, aus_anos, can_anos)
 ```
+
+# Results
+
+The final code with loops were produced below. This code enabled us to just update the drange and countries. Ultimately we did stick with the UK.
+
+
 ```{r}
-drange <- "20211025-20211031"
+# updating dates here
+
+drange <- "20211117-20211126"
 indicator <- "anosmia"
-countries <- list("United_Kingdom", "Australia", "Canada", "Germany")
+countries <- list("United_Kingdom", "Australia", "Canada", "Ireland")
 
 dataframe <- vector()
 for (country in countries){
@@ -161,12 +216,23 @@ rate <- function(drange, indicators, countries){
   return(fdf)
 }
 
-result <- rate("20211025-20211031",list("anosmia", "covid","mask","covid_vaccine"),list("United_Kingdom", "Canada","Australia","Ireland"))
+result <- rate("20211117-20211126",list("anosmia", "covid","mask","covid_vaccine"),list("United_Kingdom", "Canada","Australia","Ireland"))
 
 print(colnames(result))
 result
-
 ```
+
+The pilot test shows that the Facebook user sample’s self-reported anosmia in Canada is lowest amongst the four countries, but slightly increasing, from 0.001469 (November 25) to 0.001656. The United Kingdom ranges from 0.002974 (November 25) to 0.002921 (November 31). The rate of  anosmia is higher  in Australia at 0.004282 (November 25), but slightly decreasing to 0.003049 (November 31). Ireland has the highest rate of anosmia at 0.005862 (November 25) to 0.004971 (November 31).    
+
+We learned that a benefit of the CTIS API is that since the survey is researcher designed the variables available are cleaner and richer. It was quite easy to also integrate a COVID-19-like Illness (CLI) rate to see how anosmia trends with CLI. The CLI rate was developed by epidemiologists and provided in the aggregated data. We can see that in each country the rate of CLI increased as a similar pattern to anosmia. 
+
+Using Twitter it would be much more difficult to create and measure a CLI rate. The mentions of COVID-19 in Twitter are reflective of the current discourse and muddied with rhetoric. 
+
+During this pilot study we also learned that at no point in the survey did the researchers decide to use the word anosmia. From Wave 1 to Wave 12, the survey methodologist continued to opt for “lack of or no taste or smell.” 
+
+After this pilot study, we are confident in running and comparing rates and mentions of self-reported anosmia from the Facebook user sample to the Twitter sample. 
+
+
 ## Comparing to the date range in the google trends API 
 
 ```{r}
@@ -179,20 +245,34 @@ library(censusapi)
 res <- gtrends(c("anosmia"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
 plot <- plot(res, geom = 'smooth')
 ```
+Considering Gtrends for same time period
+
+```{r}
+res_2 <- gtrends(c("anosmia"), geo = c("GB"), time = "2021-11-17 2021-11-26", low_search_volume = T)
+plot <- plot(res_2, geom = 'smooth')
+```
+```{r}
+res_3 <- gtrends(c("no smell"), geo = c("GB"), time = "2021-11-17 2021-11-26", low_search_volume = T)
+plot <- plot(res_3, geom = 'smooth')
+```
+
+
 Considering if looking at Gtrends for the past year with GB case
 
 ```{r}
-uk_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=United_Kingdom&daterange=20210101-20211031"
+uk_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=United_Kingdom&daterange=20211117-20211126"
 request <- GET(url = uk_anos)
 response <- content(request, as = "text", encoding = "UTF-8")
 uk_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
 uk_anos
 ```
 ```{r}
+library(lubridate)
 date <- ymd(uk_anos$data.survey_date)
 date
 plot(date, uk_anos$data.smoothed_anos, type = "line")
 ```
+
 Changing data for the whole year
 
 ```{r}
@@ -248,18 +328,29 @@ data <- covidcast_signal("fb-survey", "smoothed_wcli", start_day = "2020-11-25",
 
 data
 ```
+
 ### Microdata access is not via an API
 
 The anosmia indicator is not available via the aggregated API. Instead it is available via an SFTP server.
 
 ```{r}
-library(foreign)
-us_11_20 <- read.csv("C:/Users/Samantha/Documents/cvid_responses_2021_11_20_recordedby_2021_11_24.csv")
-us_11_21
-us_11_22
-us_11_23
-us_11_24
-us_11_25
-
+#library(foreign)
+#us_11_20 <- read.csv("C:/Users/Samantha/Documents/cvid_responses_2021_11_20_recordedby_2021_11_24.csv")
+#us_11_21
+#us_11_22
+#us_11_23
+#us_11_24
+#us_11_25
 ```
 
+This was when we realized it was not a suitable API for this class project. 
+
+## Twitter Pilot API 
+
+The main purpose in a Twitter pilot test was to test the size of data returned. We were very nervous that we would run out of CPU space and be unable to complete our research. Therefore, we ran a small pilot test of our code. Because the CTIS data was “worldwide,” we did imagine a scenario where we would not be able to pull data from all four countries. 
+
+Starting with a worldwide pull (to stress test the maximum return from our code), we did confirm our concerns: a search of tweet pulls from the last 6-9 days returned a maximum exceeding the 18,000 return rate limit. However, when tailoring the pull down to anosmia the rate of return was 2,000 tweets. Filtering out re-tweets and replies the rate of anosmia mentioned was 1,400. We ran the same test with the phrases “can’t taste” and “no smell” which return pulls of 15,000 to the maximum range allowed. Again, these pulls were worldwide.
+
+Because the worldwide data were getting so large, we decided to restrict to just one country. Initially we decided on the US, but there was some difficulty with Facebook data availability (see Appendix), so we settled on the UK.
+
+Because Facebook survey data was designed for this use, it is already in a format that could be analyzed. But Twitter data needed to be cleaned and organized.After cleaning the data, it appears that most results are relevant to study objectives. Several of the top words contained in these tweets appear to be COVID-19 related (“covid,” “still,” “symptoms”). Tweets were grouped by date and combined with the Facebook dataset.
