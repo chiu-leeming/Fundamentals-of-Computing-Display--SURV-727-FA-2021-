@@ -1,0 +1,504 @@
+---
+title: "COVID-19 and Social Media Trends: Facebook and Twitter"
+author: "Samantha Chiu and Jasmin Griffin"
+subtitle: SURV727 Term Paper
+output:
+  pdf_document: default
+  html_notebook: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+
+```{r setup, include=FALSE} 
+## Prior to compiling RMD set local working directory with twitter_cleaner.csv and anos_alldata.csv and in line 412 and line 465
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+# Introduction and Motivation
+
+Social media is a relatively new data source for public opinion.  Twitter and Facebook have illustrated a large potential for insights into the attitudes and behaviors of populations. Twitter streams have been a mechanism for reflecting and organizing social movements and uprisings (i.e. “Twitter Revolutions” like the Arab Spring and the 2021 Storming of the United States Capitol).  Facebook has effectively used personal online data to predict preferences and influence behavior. 
+
+These events have led social science researchers to question the applicability of these resources as potential samples for scientific inquiry. Both social media platforms are growing in use as non-probability samples. However, little is known about these samples’ level of representation, generalizability, and predictive power. Furthermore, as survey nonresponse and the cost of fieldwork increases, researchers face increasing pressure to switch to non-probability samples. Our term paper hopes to contribute to a better understanding of how social media -- as data generating resources -- may enhance, compliment, or verify findings. 
+
+We are interested in whether or not either data set (i.e. Twitter or Facebook) leads or lags the other. We want to compare symptom reporting.We are interested is if this method provides a solution for rapid data collection on public opinion. This research is being conducted during a time where we have a highly salient topic like COVID-19 that is permeating social media culture and research into the topic will be deeply impactful. We decided to examine this potential source for data by comparing reporting for anosmia, a common COVID-19 symptom, on both platforms.
+
+# Research Question 
+
+During the COVID-19 pandemic, the demand for rapid data collection has been at an all-time high. It feels like every agency, organization, and department has switched to learning more about COVID-19. During this time, Facebook -- through joint partnerships with University of Maryland -- launched a COVID-19 symptoms survey. The symptoms suggesting COVID-19 included anosmia -- the lack of taste or smell. 
+
+Anosmia was a relatively unknown word prior to the pandemic. When we were designing the symptoms indicators for the Facebook COVID-19 Symptoms Survey in February to March 2020, we knew fever and cough were symptoms of the virus, but then later we learned that a lack of taste or smell was a symptom that made COVID-19 distinct from the flu. Epidemiologists called this anosmia. As a survey methodologist, there was no way we could put anosmia as a self-reported symptom -- the general public would not know what this word meant and if we used anosmia it would likely increase measurement error. 
+
+Twitter offers a unique scenario in which we can listen or scrape tweets for mentions of anosmia to see if the general populations report on anosmia at the same rate or trend as “lack of taste or smell” or “I can’t smell anything and I can’t taste anything.” We picked anosmia because it is a “clean” symptom and unlikely to have overlap with non-COVID-19 related topics during our data collection period. However, because users are unlikely to identify their symptom by the word anosmia (and because the response option in the Facebook survey is “Lack of taste or smell”), we decided to scrape for common keywords that hint at anosmia.
+
+Although we cannot directly comment on the non-probability nature of these samples -- that is, we do not have access to demographic data from Twitter or from Facebook user accounts -- we do wonder to what extent the Facebook survey data or the Twitter data can be used to enhance, validate, or inform each other. 
+
+# Data Sources
+
+Our term paper uses two Open APIs: The Global COVID-19 Trends and Impact Survey (CTIS) Open Data API and the Twitter API. 
+
+The CTIS API is allows researchers to access the daily COVID-19 World Symptoms Survey data. The survey is available in 56 languages. A representative sample of Facebook users is invited on a daily basis to report on topics including, for example, symptoms, social distancing behavior, vaccine acceptance, mental health issues, and finnancial constraints.
+
+The Twitter API enables researchers to listen for keywords from Tweets. Keywords which parallel survey reporting will be used. Using the rtweet package, we can record tweets in the 6-9 days before the data pull.
+
+# Hypothesis
+
+Our primary hypothesis is that integrating both open data source APIs will produce more meaningful results and better patterns on the state of COVID-19 than when evaluated independently. A secondary hypothesis is that the attitudes and behaviors reflected in the UMD CTIS Survey data will be similar to the rate of mention collected in Twitter. 
+
+# Methodology
+
+For our term paper we examine the over-time trends for anosmia in the CTIS survey and in Twitter. For analysis we will model how both peaks and valleys compare across a 9-day period for these keywords. From our pilot studies, we do decide to take a macro perspective to look at the United Kingdom over the reference period (11/18/2021 - 11/26/2021). The proportion of CTIS respondents who reported anosmia symptoms for each day was compared to the number of tweets that featured keywords relating to anosmia ("can't smell," "can't taste," "loss of smell,""loss of taste,""sense of smell," "sense of taste", and "anosmia")  
+
+# Limitations
+
+A few limitations should be recognized prior to launching into our research findings. The global scope for the Facebook/UMD CTIS survey data is large and covers multiple countries, languages and regions. The Twitter scraping will be limited to English. Therefore, we will limit our research to English speaking countries. However after the pilot study, we do decide to narrow down on the United Kingdom.
+
+It is also unknown if there is any population overlap between the Facebook survey samples and the Twitter samples. We must assume that social media users have accounts on both platforms. But we do not know the rate of sampling and resampling done in the Facebook population, and we have no personal identifiers, demographic information, or other individual user profile identifiers available to deconstruct the potential for population overlap.
+
+# Facebook Pilot Study
+
+We start by first installing some packages that we will need throughout this notebook.
+
+```{r}
+# tinytex::install_tinytex()
+# install.packages("xml2")
+# install.packages("rvest")
+# install.packages("jsonlite")
+# install.packages("robotstxt")
+# install.packages("RSocrata")
+# install.packages("stringi")
+# install.packages("rtweet")
+# install.packages("dplyr")
+# install.packages("tidyverse")
+# install.packages("ggplot2")
+# install.packages("gtrendsR")
+# install.packages("censusapi")
+```
+
+Besides installing the packages, they also have to be loaded.
+
+```{r}
+library(xml2)
+library(rvest)
+library(jsonlite)
+library(robotstxt)
+library(RSocrata)
+library(tidyverse)
+library(httr)
+library(stringi)
+library(rtweet)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+```
+
+## UMD CTIS Survey
+
+Next we prepare for the pilot study of the UMD and Facebook CTIS Survey.
+
+### API website 
+
+First we load the COVID map API.
+
+```{r}
+paths_allowed("https://covidmap.umd.edu/api/country")
+```
+
+### Loading Countries with COVID rates
+
+We then start by reading in the information from each English speaking country in the global data. We pull the "percent with covid data" for a benchmark. Please note that the date ranges are regularly updated as we moved from the pilot study to final run. Replace date range to overlap with twitter data.
+
+```{r}
+uk <- "https://covidmap.umd.edu/api/resources?indicator=covid&type=smoothed&country=United_Kingdom&daterange=20211020-20211027"
+request <- GET(url = uk)
+response <- content(request, as = "text", encoding = "UTF-8")
+ukdata <- fromJSON(response, flatten = TRUE) %>% data.frame()
+ukdata
+```
+```{r}
+australia <- "https://covidmap.umd.edu/api/resources?indicator=covid&type=smoothed&country=Australia&daterange=20211020-20211027"
+request <- GET(url = australia)
+response <- content(request, as = "text", encoding = "UTF-8")
+australiadata <- fromJSON(response, flatten = TRUE) %>% data.frame()
+australiadata
+```
+```{r}
+canada <- "https://covidmap.umd.edu/api/resources?indicator=covid&type=smoothed&country=canada&daterange=20211020-20211027"
+request <- GET(url = canada)
+response <- content(request, as = "text", encoding = "UTF-8")
+canadadata <- fromJSON(response, flatten = TRUE) %>% data.frame()
+canadadata
+```
+
+Then, we bind the dataframes
+
+```{r}
+bind_rows(ukdata, australiadata, canadadata)
+```
+
+### Loading Countries with Anosmia
+
+Next we look at anosmia for each country.
+
+```{r}
+uk_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=United_Kingdom&daterange=20211025-20211031"
+request <- GET(url = uk_anos)
+response <- content(request, as = "text", encoding = "UTF-8")
+uk_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+uk_anos
+```
+
+```{r}
+aus_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=Australia&daterange=20211025-20211031"
+request <- GET(url = aus_anos)
+response <- content(request, as = "text", encoding = "UTF-8")
+aus_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+aus_anos
+```
+
+```{r}
+can_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=Canada&daterange=20211025-20211031"
+request <- GET(url = can_anos)
+response <- content(request, as = "text", encoding = "UTF-8")
+can_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+can_anos
+```
+
+And, binding dataframes.
+
+```{r}
+bind_rows(uk_anos, aus_anos, can_anos)
+```
+
+# Results
+
+The final code with loops were produced below. This code enabled us to just update the drange and countries. Ultimately we did stick with the UK.
+
+
+```{r}
+# update dates here in drange for testing different ranges
+
+drange <- "20211117-20211126"
+indicator <- "anosmia"
+countries <- list("United_Kingdom", "Australia", "Canada", "Ireland")
+
+dataframe <- vector()
+for (country in countries){
+  url <- paste("https://covidmap.umd.edu/api/resources?indicator=", indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
+  request <- GET(url = url)
+  response <- content(request, as = "text", encoding = "UTF-8")
+  anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+  dataframe <- rbind(dataframe,anos)
+} 
+# str(dataframe)
+head(dataframe) 
+```
+```{r}
+rate <- function(drange, indicators, countries){
+  ctydf <- vector()
+  for (country in countries){
+    inddf <- vector()
+    for (indicator in indicators){
+      url <- paste("https://covidmap.umd.edu/api/resources?indicator=",indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
+      request <- GET(url = url)
+      response <- content(request, as = "text", encoding = "UTF-8")
+      indic <- fromJSON(response, flatten = TRUE) %>% data.frame()
+      indic <- as.data.frame(indic)
+      colnames(indic) <-  sub("data", indicator, colnames(indic))
+      inddf <- c(inddf,indic)
+    }
+    ctydf <- rbind.data.frame(ctydf, as.data.frame(inddf))
+  } 
+  ctydf <- as.data.frame(ctydf)
+  
+  cols <- colnames(ctydf)
+
+  colsf <- stri_detect_fixed(cols, "data.country.") | stri_detect_fixed(cols, "status") |  stri_detect_fixed(cols, ".gid") |  stri_detect_fixed(cols, ".iso_code") |  stri_detect_fixed(cols, "data.survey_date.")
+  filteredcols <-( cols[c(!colsf)] )
+  #print(filteredcols)
+  
+  fdf <- ctydf[c(filteredcols)]
+  #quick and dirty 
+  colnames(fdf) <-  sub("_anos", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid_vaccine_", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_mc", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid_", "_", colnames(fdf))
+  colnames(fdf) <-  sub("_covid", "", colnames(fdf))
+  colnames(fdf) <-  sub("__", "_", colnames(fdf))
+  #colnames(fdf) <-  sub("_", "", colnames(fdf))
+  
+  return(fdf)
+}
+
+result <- rate("20211117-20211126",list("anosmia", "covid","mask","covid_vaccine"),list("United_Kingdom", "Canada","Australia","Ireland"))
+
+#print(colnames(result))
+head(result)
+```
+
+The pilot test shows that the Facebook user sample’s self-reported anosmia in Canada is lowest amongst the four countries, but slightly increasing, from 0.001469 (November 25) to 0.001656. The United Kingdom ranges from 0.002974 (November 25) to 0.002921 (November 31). The rate of  anosmia is higher  in Australia at 0.004282 (November 25), but slightly decreasing to 0.003049 (November 31). Ireland has the highest rate of anosmia at 0.005862 (November 25) to 0.004971 (November 31).    
+
+We learned that a benefit of the CTIS API is that since the survey is researcher designed the variables available are cleaner and richer. It was quite easy to also integrate a COVID-19-like Illness (CLI) rate to see how anosmia trends with CLI. The CLI rate was developed by epidemiologists and provided in the aggregated data. We can see that in each country the rate of CLI increased as a similar pattern to anosmia. 
+
+Using Twitter it would be much more difficult to create and measure a CLI rate. The mentions of COVID-19 in Twitter are reflective of the current discourse and muddied with rhetoric. 
+
+During this pilot study we also learned that at no point in the survey did the researchers decide to use the word anosmia. From Wave 1 to Wave 12, the survey methodologist continued to opt for “lack of or no taste or smell.” 
+
+After this pilot study, we are confident in running and comparing rates and mentions of self-reported anosmia from the Facebook user sample to the Twitter sample. 
+
+
+## Comparing to the date range in the Google Trends API 
+
+As an extension to the pilot study in Facebook, we were interested in what the patterns looked like in Google Trends for key words like anosmia, "no taste" and "no smell."
+
+```{r}
+# loading required libraries
+library(tidyverse)
+library(gtrendsR)
+library(censusapi)
+```
+
+```{r}
+res <- gtrends(c("anosmia"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
+plot <- plot(res, geom = 'smooth')
+```
+
+Considering Google Trends for same time period for just the United Kingdom and the fieldwork period.
+
+```{r}
+res_2 <- gtrends(c("anosmia"), geo = c("GB"), time = "2021-11-17 2021-11-26", low_search_volume = T)
+plot <- plot(res_2, geom = 'smooth')
+```
+```{r}
+res_3 <- gtrends(c("no smell"), geo = c("GB"), time = "2021-11-17 2021-11-26", low_search_volume = T)
+plot <- plot(res_3, geom = 'smooth')
+```
+```{r}
+res_3 <- gtrends(c("no taste"), geo = c("GB"), time = "2021-11-17 2021-11-26", low_search_volume = T)
+plot <- plot(res_3, geom = 'smooth')
+```
+
+The use of Google Trends did not seem like a compelling additional data frame to compare with Twitter. But, moving from the micro-level to the macro-level, we do consider Google Trends for the past year with United Kingdom case. Therefore, for the final data collection, we look at the COVID CTIS API data for the UK.
+
+## Facebook CTIS Survey 
+
+Preparing the final code for the final run.
+
+```{r}
+uk_anos <- "https://covidmap.umd.edu/api/resources?indicator=anosmia&type=smoothed&country=United_Kingdom&daterange=20211117-20211126"
+request <- GET(url = uk_anos)
+response <- content(request, as = "text", encoding = "UTF-8")
+uk_anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+uk_anos
+```
+```{r}
+library(lubridate)
+date <- ymd(uk_anos$data.survey_date)
+date
+plot(date, uk_anos$data.smoothed_anos, type = "line")
+```
+
+Changing data for the whole year as a quality control check to see where the UK ranges compared to other English speaking countries. United Kingdom has the highest reporting of anosmia, which also reinforces the focus on UK for the final research.
+
+```{r}
+drange <- "20210101-20211031"
+indicator <- "anosmia"
+countries <- list("United_Kingdom", "Australia", "Canada", "Ireland")
+
+dataframe <- vector()
+for (country in countries){
+  url <- paste("https://covidmap.umd.edu/api/resources?indicator=", indicator,"&type=smoothed&country=",country,"&daterange=",drange, sep="")
+  request <- GET(url = url)
+  response <- content(request, as = "text", encoding = "UTF-8")
+  anos <- fromJSON(response, flatten = TRUE) %>% data.frame()
+  dataframe <- rbind(dataframe,anos)
+} 
+#str(dataframe)
+head(dataframe) 
+```
+
+```{r}
+date_all <- ymd(dataframe$data.survey_date)
+
+anos_all <-
+  dataframe %>%
+   mutate(data_all = ymd(dataframe$data.survey_date)) %>%
+   group_by(data.smoothed_anos, data_all, data.country)
+```
+
+```{r}
+ggplot(anos_all) +
+  geom_line(aes(x = data_all, y = data.smoothed_anos, color = data.country), size = 0.5)
+```
+
+Again for a quality control check with the Google Trends API. 
+
+```{r}
+res <- gtrends(c("anosmia"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
+plot <- plot(res, geom = 'smooth')
+```
+```{r}
+res <- gtrends(c("No Taste"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
+plot <- plot(res, geom = 'smooth')
+```
+```{r}
+res <- gtrends(c("No Smell"), geo = c("GB", "AT", "IE", "CA"), time = "2021-01-01 2021-10-31", low_search_volume = T)
+plot <- plot(res, geom = 'smooth')
+```
+
+## CMU Delphi COVIDCAST
+
+We do then consider the United States as a viable case study, however, there were issues with accessing the anosmia variable. 
+
+```{r}
+library(covidcast)
+
+data <- covidcast_signal("fb-survey", "smoothed_wcli", start_day = "2020-11-25",
+                         end_day = "2020-11-30")
+
+head(data)
+```
+
+### Microdata access is not via an API
+
+The anosmia indicator is not available via the aggregated API. Instead it is available via an SFTP server.
+
+```{r}
+#library(foreign)
+#us_11_20 <- read.csv("C:/Users/Samantha/Documents/cvid_responses_2021_11_20_recordedby_2021_11_24.csv")
+#us_11_21
+#us_11_22
+#us_11_23
+#us_11_24
+#us_11_25
+```
+
+This was when we realized it was not a suitable API for this class project. 
+
+## Twitter Pilot API 
+
+The main purpose in a Twitter pilot test was to test the size of data returned. We were very nervous that we would run out of CPU space and be unable to complete our research. Therefore, we ran a small pilot test of our code. Because the CTIS data was “worldwide,” we did imagine a scenario where we would not be able to pull data from all four countries. 
+
+Starting with a worldwide pull (to stress test the maximum return from our code), we did confirm our concerns: while a straightforward search for "anosmia as a keyword" returned fewer than 2000 tweets globally, a search with the phrases “can’t taste” and “no smell” which return pulls the maximum range allowed.
+
+Because the worldwide data were getting so large, we decided to restrict to just one country. Initially we decided on the US, but there was some difficulty with Facebook data availability (see Appendix), so we settled on the UK.
+
+#Analysis
+
+## Getting and cleaning Twitter data
+
+Because Facebook survey data was designed for this use, it is already in a format that could be analyzed. But Twitter data needed to be cleaned and organized. After searching for the appropriate geocodes for the UK, we pulled tweets between 11/18 and 11/26 that featured our keywords and were not retweets (to avoid duplication). Each keyword search was then combined into one dataset.
+
+```{r eval=FALSE}
+anosmia1 <- search_tweets(q="\"can't smell\"", geocode = "53.55,2.433,750mi", n = 5000, include_rts=FALSE)
+anosmia2 <- search_tweets(q="\"can't taste\"", geocode = "53.55,2.433,750mi", n = 5000, include_rts=FALSE)
+anosmia3 <- search_tweets(q="\"loss of taste\"", geocode = "53.55,2.433,750mi", n = 5000, include_rts=FALSE)
+anosmia4 <- search_tweets(q="\"loss of smell\"", geocode = "53.55,2.433,750mi", n = 5000, include_rts=FALSE)
+anosmia5 <- search_tweets(q="\"sense of smell\"", geocode = "53.55,2.433,750mi", n = 5000, include_rts=FALSE)
+anosmia6 <- search_tweets(q="\"sense of taste\"", geocode = "53.55,2.433,750mi", n = 5000, include_rts=FALSE)
+anosmia7 <- search_tweets(q='anosmia', geocode = "53.55,2.433,750mi", n = 5000, include_rts=FALSE)
+
+#Combine into one data set and plot
+twitteranosmia <- bind_rows(anosmia1,anosmia2,anosmia3,anosmia4,anosmia5,anosmia6,anosmia7)
+ts_plot(twitteranosmia)
+```
+
+This resulted in a dataset with 1304 tweets. To examine the data, we cleaned it and produced a summary of some of its most common words.
+
+```{r eval=FALSE}
+#Clean data, screen words and find most common words
+twittertest$text <- gsub("http.*", "", twittertest$text)
+twittertest$text <- gsub("https.*", "", twittertest$text)
+twittertest$text <- gsub("&amp;", "&", twittertest$text)
+
+twitter_clean <- twittertest %>%
+  select(text) %>%
+  unnest_tokens(word, text)
+
+nrow(twitter_clean)
+
+stopwds <- get_stopwords("en")
+twitter_cleaner <- twitter_clean %>%
+  anti_join(stopwds)
+
+nrow(twitter_cleaner)
+```
+```{r}
+# reset to local working directory 
+setwd("C:/Users/Samantha/Desktop/")
+twitter_cleaner<-read.csv("twitter_cleaner.csv")
+
+twitter_cleaner %>%
+  count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot() +
+  geom_col(aes(x = word, y = n)) +
+  coord_flip()
+```
+
+It's important to note that, in addition to the keywords that were included in our searches, words like "COVID" and "symptom" in this list indicate that there are a large number of relevant tweets in our dataset. During analysis, we also realized that a process like this could be used to reduce measurement error by allowing researchers to find commonly used phrases for jargon and medical terms. Searching for anosmia as a keyword could return results that contain words more often used and recognized by survey participants.
+
+## Organizing Twitter and Facebook data
+
+We then prepared the Twitter dataset to be combined with the Facebook data. To mirror the Facebook data, we would need a summary of the number of tweets on each day of the reference period. We also wanted to create a percentage change variable that we could use to compare the change in the number of tweets for each day to the change in the proportion of respondents reporting anosmia in the Facebook data.
+
+```{r eval=FALSE}
+twitteranosmia$raw_date <- gsub("-", "", twitteranosmia$date)
+
+twitteranosmia <- 
+  twitteranosmia %>%
+  separate(raw_date, c("raw_date2", "time"), sep = " ")
+
+twittersum <- as.data.frame(table(twitteranosmia$raw_date2))
+
+twittersum <- twittersum %>%
+mutate(Percentage_Change = (Freq - lag(Freq))/lag(Freq) * 100)
+```
+
+The Facebook data also required a few edits to add a percentage change variable and to rename the date variable to match the date variable in the Twitter data to make joining the datasets easier. The datasets were then joined and some columns were renamed to be more clear.
+
+```{r eval=FALSE}
+facebooksum <-
+  uk_anos %>%
+  select(data.smoothed_anos,data.survey_date) %>%
+  rename(Date = data.survey_date) %>%
+  mutate(Percentage_ChangF = (data.smoothed_anos - lag(data.smoothed_anos))/lag(data.smoothed_anos) * 100)
+
+alldata <-full_join(twittersum,facebooksum,by="Date")
+
+alldata <-
+  alldata %>%
+  rename(Twitter_Data = Freq) %>%
+  rename(Facebook_Data = data.smoothed_anos) 
+
+alldata
+```
+
+We can then get the correlation of this final dataset and combine them into one graph that illustrates both trends. Note: running this chunk will require that you save the attached dataset and copy the filepath into the first line below
+
+```{r}
+# set local directory
+setwd("C:/Users/Samantha/Desktop/")
+alldata<-read.csv("anos_alldata.csv")
+
+anos_corr <- cor(alldata$Twitter_Data,alldata$Facebook_Data)
+anos_corr
+
+#This coefficient helps to scale the second axis of the graph
+coeff <- 170/0.06
+
+ggplot(alldata, aes(x=Date)) +
+  geom_line( aes(y=Twitter_Data, group=1, size=0.5, color="Twitter")) + 
+  geom_line( aes(y=Facebook_Data*coeff, group=1, size=0.5, color="Facebook")) +
+  scale_y_continuous(name = "Tweets per day", sec.axis = sec_axis(trans=~./coeff, name="% reported anosmia in survey")) +
+  ggtitle("Facebook Reported Anosmia vs. Twitter Volume") +
+  theme(legend.title = element_blank()) +
+  scale_size(guide = 'none') +
+  annotate("text", x = 20211125, y = 161, label = "Correlation: 0.089")
+```
+
+# Results and Conclusions
+
+There is a very weak associaton between the two lines, with a correlation of only 0.089. Looking at the graph, the proportion of respondents reporting anosmia symtoms seems to peak when the number of Tweets start to decline. Our speculation is that this could be because Twitter data could lag Facebook data or vice versa. It's also notable that, looking at the percentage change for each day for Facebook and Twitter, there appear to be much wilder swings for Twitter than for Facebook. Ultimately, though, we did not find support for our hypothesis that these datasets could be used in conjunction with one another. However, in the future, this analysis could possibly be repeated for a longer time frame or in another geographic location, which may make the dataset robust. And while we ultimately did not prove that these data sources have similar trends, through our process we uncovered a method researchers may use to find keywords and phrases that are most commonly used for jargon like "anosmia."
